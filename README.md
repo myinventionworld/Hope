@@ -6,7 +6,7 @@
 ## 📋 Project Structure
 
 ```
-hope-calendar-bot/
+Hope/
 ├── .env.example              # Environment variables template
 ├── .gitignore               
 ├── README.md                

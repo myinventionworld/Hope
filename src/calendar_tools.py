@@ -1,10 +1,23 @@
 import datetime
 from googleapiclient.discovery import build
-from src.auth import authenticate_google_calendar
+from src.utils.context import current_user_creds
+
+def get_creds():
+    """Retrieves credentials from the current context."""
+    creds = current_user_creds.get()
+    if not creds:
+        raise ValueError("User not authenticated. Please log in.")
+    return creds
 
 def create_calendar_event(title: str, start_time_str: str, duration_hours: int):
+    """
+    Создает событие в Google Календаре.
+    title: Название события.
+    start_time_str: Время начала в формате ISO (YYYY-MM-DDTHH:MM:SS).
+    duration_hours: Длительность в часах.
+    """
     try:
-        creds = authenticate_google_calendar()
+        creds = get_creds()
         service = build('calendar', 'v3', credentials=creds)
 
         start_time = datetime.datetime.fromisoformat(start_time_str)
@@ -39,8 +52,13 @@ def create_calendar_event(title: str, start_time_str: str, duration_hours: int):
 
 
 def delete_calendar_event_by_summary(event_summary: str):
+    """
+    Удаляет предстоящее событие из Google Calendar по его названию.
+    Будет удалено первое найденное предстоящее событие, название которого содержит event_summary.
+    event_summary: Часть названия события для поиска.
+    """
     try:
-        creds = authenticate_google_calendar()
+        creds = get_creds()
         service = build('calendar', 'v3', credentials=creds)
 
         now = datetime.datetime.utcnow().isoformat() + 'Z'  # 'Z' indicates UTC time
@@ -75,8 +93,12 @@ def delete_calendar_event_by_summary(event_summary: str):
 
 
 def list_upcoming_events(max_results: int = 10):
+    """
+    Показывает список предстоящих событий.
+    max_results: Максимальное количество событий.
+    """
     try:
-        creds = authenticate_google_calendar()
+        creds = get_creds()
         service = build('calendar', 'v3', credentials=creds)
 
         now = datetime.datetime.utcnow().isoformat() + 'Z'
@@ -118,7 +140,7 @@ def get_upcoming_events_soon(minutes: int = 15):
     Возвращает список событий, которые начнутся в ближайшие 'minutes' минут.
     """
     try:
-        creds = authenticate_google_calendar()
+        creds = get_creds()
         service = build('calendar', 'v3', credentials=creds)
 
         now = datetime.datetime.utcnow()

@@ -21,3 +21,13 @@ class Video(Base):
 
     def __repr__(self) -> str:
         return f"Video(id={self.id!r}, url={self.url!r}, status={self.status!r})"
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    telegram_id: Mapped[int] = mapped_column(primary_key=True)
+    credentials_json: Mapped[str | None] = mapped_column(String, nullable=True)
+
+    def __repr__(self) -> str:
+        return f"User(telegram_id={self.telegram_id!r})"

@@ -1,0 +1,9 @@
+version: '3.8'
+services:
+  hope-bot:
+    build: .
+    volumes:
+      - ./credentials:/app/credentials
+      - ./token.json:/app/token.json
+      - ./.env:/app/.env
+    restart: unless-stopped

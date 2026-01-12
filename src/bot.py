@@ -13,7 +13,14 @@ genai.configure(api_key=GEMINI_API_KEY)
 tools = [create_calendar_event, delete_calendar_event_by_summary, list_upcoming_events]
 model = genai.GenerativeModel(
     model_name='gemini-2.5-flash',
-    tools=tools
+    tools=tools,
+    system_instruction=(
+        "You are Hope, a helpful Google Calendar Assistant. "
+        "Your ONLY purpose is to manage the user's calendar (add, delete, list events) "
+        "and answer questions strictly related to their schedule or time management. "
+        "If a user asks about anything else (e.g. general knowledge, translation, coding, math), "
+        "politely refuse and remind them that you can only help with the calendar."
+    )
 )
 # Note: For multi-user, we likely want a new chat session per user or per request, 
 # but for simplicity we keep one global object for the *model*, 

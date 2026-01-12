@@ -129,7 +129,7 @@ def list_upcoming_events(max_results: int = 10):
                 formatted_start = date_object.strftime("%d.%m.%Y")
                 time_type = "Дата"
             
-            result += f"- {time_type}: {formatted_start} | Название: \"{summary}\" | ID: {event_id}\n"
+            result += f"- {time_type}: {formatted_start} | Название: \"{summary}\"\n"
         return result
 
     except Exception as e:

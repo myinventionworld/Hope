@@ -98,6 +98,8 @@ async def handle_message(update, context):
         current_user_id.reset(token_id)
         current_user_creds.reset(token_creds)
 
+sent_reminders = set()
+
 async def check_reminders(context):
     """Job to check for upcoming events and send reminders for ALL users."""
     try:
@@ -115,33 +117,49 @@ async def check_reminders(context):
             token_creds = current_user_creds.set(creds)
             
             try:
-                # Check events
-                events = get_upcoming_events_soon(minutes=15)
-                # Note: We need a smarter way to track notified events per user.
-                # 'notified_events' was a global set. 
-                # For MVP, we can just send it. Better: save 'last_notified' in DB or check if event started recently.
-                # Simplification: We will just print found events for now to avoid spamming 
-                # or duplicate notifications every minute without persistent state.
-                # A real implementation needs a 'Reminders' table.
+                # Check events starting in the next 30 minutes
+                events = get_upcoming_events_soon(minutes=30)
                 
                 if events:
                      for event in events:
+                        event_id = event['id']
+                        
+                        # Skip if already sent
+                        if event_id in sent_reminders:
+                            continue
+                            
                         summary = event.get('summary', 'Без названия')
-                        start = event['start'].get('dateTime', event['start'].get('date'))
-                        # Just send blindly for now (MVP limitation: might duplicate if job runs often)
-                        # To fix duplication: only notify if start time is in [now+14m, now+15m]
+                        start = event['start']
+                        end = event['end']
                         
-                        # Let's try to be specific: < 15 min and > 14 min? No, job runs every 60s.
-                        # We risk missing it.
-                        # We risk repeating it.
-                        # For this task, getting it working is priority.
+                        # Handle formatting and time check
+                        start_str = start.get('dateTime', start.get('date'))
+                        end_str = end.get('dateTime', end.get('date'))
                         
-                        msg = f"⏰ Напоминание! Скоро: {summary} ({start})"
-                        # Use ignore_errors=True in case user blocked bot
+                        msg = ""
+                        
+                        if 'dateTime' in start:
+                            # Parse times
+                            start_dt = datetime.datetime.fromisoformat(start_str)
+                            end_dt = datetime.datetime.fromisoformat(end_str)
+                            
+                            # Check if it's too close to start (e.g. user said "not right now")
+                            # We'll rely primarily on the duplicate check, but we could also check time
+                            # Current logic: If we catch it in the [0, 30] min window and haven't sent it, we send.
+                            
+                            # Format: "Название активности: время(например 16:00 - 17:00"
+                            time_range = f"{start_dt.strftime('%H:%M')} - {end_dt.strftime('%H:%M')}"
+                            msg = f"⏰ Напоминание! Скоро: {summary}: {time_range}"
+                        else:
+                            # All-day event
+                            msg = f"⏰ Напоминание! Сегодня: {summary}"
+
                         try:
                              await context.bot.send_message(chat_id=user_id, text=msg)
-                        except:
-                            pass
+                             # Mark as sent
+                             sent_reminders.add(event_id)
+                        except Exception as inner_e:
+                            print(f"Failed to send message to {user_id}: {inner_e}")
 
             finally:
                 current_user_creds.reset(token_creds)

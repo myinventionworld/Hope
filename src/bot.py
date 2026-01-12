@@ -31,10 +31,62 @@ user_chats = {}
 async def start(update, context):
     user = update.effective_user
     await update.message.reply_text(
-        f'Привет, {user.first_name}! Я Ассистент с Календарем.\n'
-        'Чтобы я мог управлять твоим календарем, нужно авторизоваться.\n'
-        'Напиши /login, чтобы получить ссылку.'
+        f'Привет, {user.first_name}! 👋\n\n'
+        'Я **Hope** — твой умный ассистент с Календарем. 🤖📅\n\n'
+        '**Что я умею:**\n'
+        '🔹 Записывать события в Google Calendar ("Запиши к врачу завтра в 10")\n'
+        '🔹 Напоминать о встречах за 15 минут\n'
+        '🔹 Удалять события ("Удали встречу с врачом")\n'
+        '🔹 Показывать твой график\n\n'
+        '**С чего начать:**\n'
+        '1. Напиши /login чтобы авторизоваться в Google.\n'
+        '2. Затем просто пиши мне, что нужно сделать!',
+        parse_mode='Markdown'
     )
+
+async def help_command(update, context):
+    await update.message.reply_text(
+        '**Справка по командам:** ℹ️\n\n'
+        '/start — Перезапустить бота\n'
+        '/login — Авторизация в Google Calendar\n'
+        '/events — Показать ближайшие события\n'
+        '/status — Проверить статус подключения\n'
+        '/help — Показать это сообщение\n\n'
+        '**Примеры запросов:**\n'
+        '— "Запиши тренировку в четверг в 19:00 на 1.5 часа"\n'
+        '— "Какие планы на завтра?"\n'
+        '— "Удали обед с коллегами"',
+        parse_mode='Markdown'
+    )
+
+async def events_command(update, context):
+    """Explicitly list upcoming events via command."""
+    user_id = update.effective_user.id
+    creds = await get_user_creds(user_id)
+    if not creds:
+        await update.message.reply_text("Сначала нужно авторизоваться. Напиши /login")
+        return
+    
+    # Store in context for the tool function
+    token_creds = current_user_creds.set(creds)
+    try:
+        events_text = list_upcoming_events(max_results=10)
+        await update.message.reply_text(events_text)
+    except Exception as e:
+        await update.message.reply_text(f"Ошибка получения событий: {e}")
+    finally:
+        current_user_creds.reset(token_creds)
+
+async def status_command(update, context):
+    user_id = update.effective_user.id
+    creds = await get_user_creds(user_id)
+    
+    if creds and creds.valid:
+        await update.message.reply_text("✅ **Статус**: Авторизован в Google Calendar.", parse_mode='Markdown')
+    elif creds:
+        await update.message.reply_text("⚠️ **Статус**: Требуется обновление токена (попробуйте сделать запрос).", parse_mode='Markdown')
+    else:
+        await update.message.reply_text("❌ **Статус**: Не авторизован. Используйте /login.", parse_mode='Markdown')
 
 async def login(update, context):
     user_id = update.effective_user.id
@@ -42,7 +94,9 @@ async def login(update, context):
     auth_url, _ = flow.authorization_url(prompt='consent')
     
     await update.message.reply_text(
-        f'Пожалуйста, перейди по ссылке, авторизуйся и пришли мне код подтверждения:\n\n{auth_url}'
+        f'🔗 **Авторизация**\n\n'
+        f'Перейди по ссылке, авторизуйся и пришли мне код подтверждения:\n{auth_url}',
+        parse_mode='Markdown'
     )
 
 async def handle_message(update, context):
@@ -61,7 +115,7 @@ async def handle_message(update, context):
             return
         except Exception as e:
             print(f"Auth error: {e}")
-            await update.message.reply_text(f"Не удалось авторизоваться. Ошибка: {str(e)}")
+            await update.message.reply_text(f"❌ Не удалось авторизоваться. Ошибка: {str(e)}")
             return
 
     # Normal message handling
@@ -70,7 +124,7 @@ async def handle_message(update, context):
     # 1. Load credentials into Context
     creds = await get_user_creds(user_id)
     if not creds:
-        await update.message.reply_text("Сначала нужно авторизоваться. Напиши /login")
+        await update.message.reply_text("⛔️ Сначала нужно авторизоваться. Напиши /login")
         return
 
     # Set context vars
@@ -169,6 +223,15 @@ async def check_reminders(context):
 
 async def post_init(application):
     await init_db()
+    
+    # Set bot commands for the menu button
+    await application.bot.set_my_commands([
+        ('start', 'Запустить бота'),
+        ('events', 'Ближайшие события'),
+        ('status', 'Статус подключения'),
+        ('login', 'Авторизация в Google'),
+        ('help', 'Справка'),
+    ])
 
 def run_bot():
     print("Бот (с Календарем) запускается...")
@@ -176,6 +239,10 @@ def run_bot():
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("login", login))
+    application.add_handler(CommandHandler("help", help_command))
+    application.add_handler(CommandHandler("events", events_command))
+    application.add_handler(CommandHandler("status", status_command))
+    
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     
     if application.job_queue:

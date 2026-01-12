@@ -170,21 +170,20 @@ Hope: 📅 Создать повторяющееся событие?
 
 ### MVP (Current Phase)
 - [x] Project structure
-- [ ] Basic Telegram bot
-- [ ] OpenAI event parsing
-- [ ] Google Calendar integration
-- [ ] User authentication flow
-- [ ] Event confirmation UI
+- [x] Basic Telegram bot
+- [x] Google Calendar integration
+- [x] User authentication flow
+- [x] Event editing/deletion
+- [x] Smart reminders
+- [x] Timezone management
 
 ### Future Features
 - [ ] Voice message support (STT → LLM)
-- [ ] Event editing/deletion
-- [ ] Smart reminders
 - [ ] Recurring events
 - [ ] Multi-language support
 - [ ] Local LLM option (Llama 3)
 - [ ] Calendar view in Telegram
-- [ ] Timezone management
+
 
 ## 🧪 Testing
 

@@ -59,6 +59,7 @@ async def help_command(update, context):
         '/start — Перезапустить бота\n'
         '/login — Авторизация в Google Calendar\n'
         '/events — Показать ближайшие события\n'
+        '/calendar — Показать календарь\n'
         '/status — Проверить статус подключения\n'
         '/help — Показать это сообщение\n\n'
         '**Примеры запросов:**\n'

@@ -213,6 +213,68 @@ async def handle_message(update, context):
         current_user_id.reset(token_id)
         current_user_creds.reset(token_creds)
 
+async def handle_voice_message(update, context):
+    """Handle voice messages by transcribing with Gemini and processing as text."""
+    user_id = update.effective_user.id
+    print(f"Пользователь {user_id} прислал голосовое сообщение")
+    
+    await context.bot.send_chat_action(chat_id=update.effective_chat.id, action=telegram.constants.ChatAction.TYPING)
+    
+    # Check auth
+    creds = await get_user_creds(user_id)
+    if not creds:
+        await update.message.reply_text("⛔️ Сначала нужно авторизоваться. Напиши /login")
+        return
+    
+    try:
+        # Download voice file
+        voice = update.message.voice
+        voice_file = await context.bot.get_file(voice.file_id)
+        
+        # Download to bytes
+        voice_bytes = await voice_file.download_as_bytearray()
+        
+        # Upload to Gemini and transcribe + process
+        import tempfile
+        import os
+        
+        # Save temporarily (Gemini SDK needs a file path or bytes with mime type)
+        with tempfile.NamedTemporaryFile(suffix=".ogg", delete=False) as tmp_file:
+            tmp_file.write(voice_bytes)
+            tmp_path = tmp_file.name
+        
+        try:
+            # Upload file to Gemini
+            audio_file = genai.upload_file(tmp_path, mime_type="audio/ogg")
+            
+            # Set context vars
+            token_id = current_user_id.set(user_id)
+            token_creds = current_user_creds.set(creds)
+            
+            try:
+                # Get or create ChatSession
+                if user_id not in user_chats:
+                    user_chats[user_id] = model.start_chat(enable_automatic_function_calling=True)
+                
+                chat = user_chats[user_id]
+                
+                current_date_str = datetime.date.today().isoformat()
+                prompt = f"Today's date is {current_date_str}. The user sent a voice message. First transcribe it, then process the request."
+                
+                response = chat.send_message([audio_file, prompt])
+                await update.message.reply_text(response.text)
+                
+            finally:
+                current_user_id.reset(token_id)
+                current_user_creds.reset(token_creds)
+        finally:
+            # Clean up temp file
+            os.unlink(tmp_path)
+            
+    except Exception as e:
+        print(f"Ошибка обработки голосового: {e}")
+        await update.message.reply_text(f"Ой, не удалось обработать голосовое сообщение. Ошибка: {e}")
+
 sent_reminders = set()
 
 async def check_reminders(context):
@@ -310,6 +372,7 @@ def run_bot():
     application.add_handler(CallbackQueryHandler(calendar_callback, pattern=r"^CALENDAR\|"))
     
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    application.add_handler(MessageHandler(filters.VOICE, handle_voice_message))
     
     if application.job_queue:
         # Check every minute

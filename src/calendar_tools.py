@@ -160,3 +160,46 @@ def get_upcoming_events_soon(minutes: int = 15):
     except Exception as e:
         print(f"Error fetching upcoming events: {e}")
         return []
+
+def get_events_for_date(target_date):
+    """
+    Returns events for a specific date.
+    target_date: a datetime.date object
+    """
+    try:
+        creds = get_creds()
+        service = build('calendar', 'v3', credentials=creds)
+
+        import datetime as dt
+        # Start of day in local time, then convert to UTC for API
+        start_of_day = dt.datetime.combine(target_date, dt.time.min).astimezone()
+        end_of_day = dt.datetime.combine(target_date, dt.time.max).astimezone()
+
+        events_result = service.events().list(
+            calendarId='primary',
+            timeMin=start_of_day.isoformat(),
+            timeMax=end_of_day.isoformat(),
+            singleEvents=True,
+            orderBy='startTime'
+        ).execute()
+        
+        events = events_result.get('items', [])
+        
+        if not events:
+            return f"📅 На {target_date.strftime('%d.%m.%Y')} событий нет."
+        
+        result = f"📅 События на {target_date.strftime('%d.%m.%Y')}:\n"
+        for event in events:
+            start_info = event['start']
+            summary = event.get('summary', 'Без названия')
+            
+            if 'dateTime' in start_info:
+                start_dt = dt.datetime.fromisoformat(start_info['dateTime'])
+                result += f"• {start_dt.strftime('%H:%M')} — {summary}\n"
+            else:
+                result += f"• Весь день — {summary}\n"
+        
+        return result
+    except Exception as e:
+        print(f"Error fetching events for date: {e}")
+        return f"Ошибка получения событий: {e}"

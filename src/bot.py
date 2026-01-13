@@ -1,12 +1,14 @@
 import telegram
-from telegram.ext import Application, CommandHandler, MessageHandler, filters
+from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters
 import google.generativeai as genai
 import datetime
+from datetime import date
 from src.config import TELEGRAM_TOKEN, GEMINI_API_KEY
-from src.calendar_tools import create_calendar_event, delete_calendar_event_by_summary, list_upcoming_events, get_upcoming_events_soon
+from src.calendar_tools import create_calendar_event, delete_calendar_event_by_summary, list_upcoming_events, get_upcoming_events_soon, get_events_for_date
 from src.auth import get_user_creds, get_flow, save_user_creds, get_all_authenticated_users
 from src.database.session import init_db
 from src.utils.context import current_user_id, current_user_creds
+from src.ui.calendar_keyboard import create_calendar, parse_callback_data
 
 # Configure Gemini
 genai.configure(api_key=GEMINI_API_KEY)
@@ -94,6 +96,57 @@ async def status_command(update, context):
         await update.message.reply_text("⚠️ **Статус**: Требуется обновление токена (попробуйте сделать запрос).", parse_mode='Markdown')
     else:
         await update.message.reply_text("❌ **Статус**: Не авторизован. Используйте /login.", parse_mode='Markdown')
+
+async def calendar_command(update, context):
+    """Show interactive calendar keyboard."""
+    user_id = update.effective_user.id
+    creds = await get_user_creds(user_id)
+    if not creds:
+        await update.message.reply_text("⛔️ Сначала нужно авторизоваться. Напиши /login")
+        return
+    
+    await update.message.reply_text(
+        "📅 Выберите дату:",
+        reply_markup=create_calendar()
+    )
+
+async def calendar_callback(update, context):
+    """Handle calendar button presses."""
+    query = update.callback_query
+    await query.answer()
+    
+    user_id = update.effective_user.id
+    creds = await get_user_creds(user_id)
+    if not creds:
+        await query.edit_message_text("⛔️ Сначала нужно авторизоваться. Напиши /login")
+        return
+    
+    data = parse_callback_data(query.data)
+    action = data["action"]
+    year = data["year"]
+    month = data["month"]
+    day = data["day"]
+    
+    if action == "IGNORE":
+        return
+    
+    if action in ("PREV", "NEXT", "TODAY"):
+        # Update the calendar view
+        await query.edit_message_text(
+            "📅 Выберите дату:",
+            reply_markup=create_calendar(year, month)
+        )
+        return
+    
+    if action == "DAY":
+        # Fetch events for that day
+        token_creds = current_user_creds.set(creds)
+        try:
+            target_date = date(year, month, day)
+            events_text = get_events_for_date(target_date)
+            await query.edit_message_text(events_text)
+        finally:
+            current_user_creds.reset(token_creds)
 
 async def login(update, context):
     user_id = update.effective_user.id
@@ -234,6 +287,7 @@ async def post_init(application):
     # Set bot commands for the menu button
     await application.bot.set_my_commands([
         ('start', 'Запустить бота'),
+        ('calendar', '📅 Календарь'),
         ('events', 'Ближайшие события'),
         ('status', 'Статус подключения'),
         ('login', 'Авторизация в Google'),
@@ -249,6 +303,10 @@ def run_bot():
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("events", events_command))
     application.add_handler(CommandHandler("status", status_command))
+    application.add_handler(CommandHandler("calendar", calendar_command))
+    
+    # Callback handler for calendar navigation
+    application.add_handler(CallbackQueryHandler(calendar_callback, pattern=r"^CALENDAR\|"))
     
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     

@@ -145,7 +145,6 @@ User: Завтра в 10 утра встреча с командой
 Hope: 📅 Создать событие?
       Встреча с командой
       🕐 24 октября 2025, 10:00
-      [✅ Создать] [❌ Отмена]
 ```
 
 **With duration:**
@@ -154,7 +153,6 @@ User: Позаниматься спортом завтра утром 1 час
 Hope: 📅 Создать событие?
       Позаниматься спортом
       🕐 24 октября 2025, 09:00 - 10:00
-      [✅ Создать] [❌ Отмена]
 ```
 
 **Recurring event:**
@@ -176,13 +174,13 @@ Hope: 📅 Создать повторяющееся событие?
 - [x] Event editing/deletion
 - [x] Smart reminders
 - [x] Timezone management
+- [x] Voice message support (STT → LLM)
+- [x] Calendar view in Telegram
 
 ### Future Features
-- [ ] Voice message support (STT → LLM)
 - [ ] Recurring events
 - [ ] Multi-language support
 - [ ] Local LLM option (Llama 3)
-- [ ] Calendar view in Telegram
 
 
 ## 🧪 Testing
